@@ -1,0 +1,47 @@
+name: Unzip uploaded archive
+
+# Run when a zip is pushed (adjust pattern if your zip name is different)
+on:
+  push:
+    paths:
+      - '*.zip'
+
+permissions:
+  contents: write
+
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: List repository files
+        run: ls -la
+
+      - name: Unzip archive (if present)
+        run: |
+          set -e
+          # find a zip in repo root (first match)
+          ZIP=$(ls *.zip 2>/dev/null | head -n 1 || true)
+          if [ -z "$ZIP" ]; then
+            echo "No zip found, exiting."
+            exit 0
+          fi
+          echo "Found zip: $ZIP"
+          # create temp dir and unzip
+          mkdir -p extracted
+          unzip -o "$ZIP" -d extracted
+          # move extracted content to repo root (preserve hidden files)
+          shopt -s dotglob || true
+          mv extracted/* . || true
+          rm -rf extracted
+          # optionally remove the zip itself (so repo won't keep it)
+          rm -f "$ZIP"
+          echo "Unzip complete."
+
+      - name: Commit unzipped files
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "Unzip uploaded archive"
+          file_pattern: '*'
